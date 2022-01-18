@@ -333,8 +333,8 @@ def set_change_mode():
 def main():
     global data_file_name,seats
 
-    # greet()
-    # sleep(0.2)
+    greet()
+    sleep(0.2)
     mode=import_or_create()
     if mode=="import":
         data_file_name=select_file([("数据文件","*.rsd")]) # ".rsd" 取自 random、seat、data 首字母
