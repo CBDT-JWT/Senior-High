@@ -6,5 +6,5 @@ you can  download pygame via ```pip install pygame``` command
 
 
 # Update logs
-## RS v3.1 published at 2022.1.18 16:46
+## RS v3.0.1 published at 2022.1.18 16:46
 unfinished
