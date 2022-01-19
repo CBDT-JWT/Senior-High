@@ -1,8 +1,8 @@
 # How to use
-**The source code need python3 and pygame**  
-you can  download pygame via ```pip install pygame``` command  
+**源代码需求 ```python3``` 和 ```pygame```**  
+你可以通过 ```pip install pygame``` 命令安装 ```pygame```  
 
-**put ```test.py``` and ```prefix.py``` under the same directory**  
+**将 ```test.py``` 和 ```prefix.py``` 放在同一目录下**  
 
 
 # Update logs
