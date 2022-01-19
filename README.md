@@ -8,3 +8,5 @@
 # Update logs
 ## RS v3.0.1 published at 2022.1.18 16:46
 unfinished
+## RS v3.0.2 published at 2022.1.19 17:44
+unfinished
