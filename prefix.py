@@ -11,9 +11,8 @@ from tkinter import Button,Label,Entry,Frame
 pygame.init()
 pygame.font.init()
 # 帧速率
-FPS=30
+FPS=300
 fps_clock=pygame.time.Clock()
-fps_clock.tick(FPS)
 # 颜色
 BLACK     = (  0,  0,  0)
 WHITE     = (255,255,255)

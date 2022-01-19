@@ -1,10 +1,10 @@
-from xml.etree.ElementPath import prepare_star
+from re import T
 from prefix import *
 from os import _exit
 
-global lines_number,columns_number,seats
+global lines_number,columns_number,seats,seats_change_mode
 lines_number=columns_number=0
-seats=[]
+seats=seats_change_mode=[]
 
 global data_file_name
 data_file_name=""
@@ -15,6 +15,10 @@ def IN(test,MIN,MAX):
         return True
     else:
         return False
+
+# 按小大排序
+def chkmin(x:tuple,y:tuple):
+    return (min(x[0],y[0]),min(x[1],y[1])),(max(x[0],y[0]),max(x[1],y[1]))
 
 # 弹出提示
 def show_info(event):
@@ -42,8 +46,9 @@ def select_file(file_mode): # file_mode 为包含n个元组的列表
     tk.destroy()
     return file_name
 
-# 欢迎界面
+# 欢迎界面（没什么用）
 def greet():
+    # 初始化界面
     greet_surface=pygame.display.set_mode((500,200))
     pygame.display.set_caption("欢迎")
     greet_surface.fill(GRAY)
@@ -70,13 +75,16 @@ def greet():
                 pygame.quit()
                 _exit(0)
         pygame.display.update()
+        fps_clock.tick(FPS)
     pygame.display.quit()
 
 # 导入、新建
 def import_or_create():
+    # 初始化界面
     import_or_create_surface=pygame.display.set_mode((200,200))
     pygame.display.set_caption("导入/新建")
-    # 布置界面
+
+    # 布置界面（三个按钮）
     import_button=LITTLE_FONT.render("导入",True,WHITE)
     import_button_rect=import_button.get_rect()
     import_button_rect.center=(100,55)
@@ -86,6 +94,7 @@ def import_or_create():
     last_button=LITTLE_FONT.render("最近",True,WHITE)
     last_button_rect=last_button.get_rect()
     last_button_rect.center=(100,155)
+
     # 维持窗口
     while True:
         import_or_create_surface.fill(GRAY)
@@ -125,6 +134,7 @@ def import_or_create():
                     return "last"
         
         pygame.display.update()
+        fps_clock.tick(FPS)
 
 # 选择座位行列数
 def choose_seats_numbers():
@@ -167,7 +177,7 @@ def choose_seats_numbers():
 
 # 选择“空”座位
 def choose_blank_seats():
-    global seats,lines_number,columns_number
+    global seats,seats_change_mode,lines_number,columns_number
 
     choose_blank_seats_surface=pygame.display.set_mode((100+45*columns_number,200+45*(lines_number-1)))
     pygame.display.set_caption("选择空座位")
@@ -203,10 +213,14 @@ def choose_blank_seats():
     while True:
 
         choose_blank_seats_surface.fill(GRAY)
+        
+        # 讲台
         pygame.draw.rect(choose_blank_seats_surface,DARK_GRAY,stage_block)
         choose_blank_seats_surface.blit(stage_word,stage_word_rect)
+        # 确认按钮
         pygame.draw.rect(choose_blank_seats_surface,DARK_GRAY,confirm_button_block)
         choose_blank_seats_surface.blit(confirm_button_word,confirm_button_word_rect)
+        # 座位
         for x in range(columns_number):
             for y in range(lines_number):
                 pygame.draw.rect(choose_blank_seats_surface,
@@ -219,18 +233,25 @@ def choose_blank_seats():
 
             # 鼠标悬停
             mouse_pos=pygame.mouse.get_pos()
+                # 在确认按钮上
             if IN(mouse_pos,confirm_button_block.topleft,confirm_button_block.bottomright):
                 confirm_button_word=LITTLE_FONT.render("确 认",True,YELLOW)
             else:
                 confirm_button_word=LITTLE_FONT.render("确 认",True,WHITE)
+
+                # 在座位上
+                break_flag=False
                 for x in range(columns_number):
                     for y in range(lines_number):
                         if IN(mouse_pos,seats_blocks_rect[x][y].topleft,
                                 seats_blocks_rect[x][y].bottomright):
                             seats_blocks_color[x][y]=YELLOW
+                            break_flag=True
                             break
                         else:
                             seats_blocks_color[x][y]=DARK_GRAY
+                    if break_flag:
+                        break
             
             # 鼠标点击
             if event.type==MOUSEBUTTONUP:
@@ -238,33 +259,74 @@ def choose_blank_seats():
                 if IN(mouse_pos,confirm_button_block.topleft,confirm_button_block.bottomright):
                     for x in range(columns_number):
                         for y in range(lines_number):
-                            seats[y][x]="BLANK" if seats_blocks_buf[x][y] else ""
+                            seats[x][y]="BLANK" if seats_blocks_buf[x][y] else ""
+                            seats_change_mode[x][y]=(-1,-1) if seats_blocks_buf[x][y] else (0,0)
                     pygame.display.quit()
                     return
                 
                 # 点击座位
                 elif IN(mouse_pos,seats_blocks_rect[0][0].topleft,
                     seats_blocks_rect[-1][-1].bottomright):
+                    break_flag=False
                     for x in range(columns_number):
                         for y in range(lines_number):
                             if IN(mouse_pos,seats_blocks_rect[x][y].topleft,
                                     seats_blocks_rect[x][y].bottomright):
                                 seats_blocks_buf[x][y]=not seats_blocks_buf[x][y]
+                                # 可以取消点击
+                                break_flag=True
                                 break
                             else:
                                 pass
+                        if break_flag:
+                            break
         
         pygame.display.update()
+        fps_clock.tick(FPS)
     return
 
 # 设置轮换规则
 def set_change_mode():
-    global seats
-    change_cnt=0
-    
+    global seats,seats_change_mode
+
     set_change_mode_surface=pygame.display.set_mode((140+70*columns_number,170+35*lines_number))
     pygame.display.set_caption("设置轮换规则")
+
+    change_cnt=0 # 可视化轮换方式
+    pre_selected=pre_first_click=pst_first_click=False 
+    # 用来判断是否选中了【轮换前】中的某些 blocks
+
+    pre_first_block=pre_second_block=pst_first_block=pst_second_block=(-1,-1)
+    # 用来存 pre 和 pst 中选中的对角 block (up)
+
+    pre_seats_selected_buf=[[False for j in range(lines_number)] for i in range(columns_number)]
+    # 用来存上一次（这一次？）选 pre 选了哪些 block
+
+    seats_change_buf=[[(-1,-1) for j in range(lines_number)] for i in range(columns_number)]
+    # 用来临时存轮换的方式，是 pst 的每个 block 在 pre 中是 (x,y)
+
+    pre_seats_change_visualize_word=[[VERY_LITTLE_FONT.render("",True,WHITE) for j in range(lines_number)] for i in range(columns_number)]
+    pre_seats_change_visualize_word_rect=[[pre_seats_change_visualize_word[i][j].get_rect()
+             for j in range(lines_number)] for i in range(columns_number)]
+    for i in range(columns_number):
+        for j in range(lines_number):
+            pre_seats_change_visualize_word_rect[i][j].center=(45+35*i,55+35*j)
     
+    pst_seats_change_visualize_word=[[VERY_LITTLE_FONT.render("",True,WHITE) for j in range(lines_number)] for i in range(columns_number)]
+    pst_seats_change_visualize_word_rect=[[pst_seats_change_visualize_word[i][j].get_rect()
+             for j in range(lines_number)] for i in range(columns_number)]
+    for i in range(columns_number):
+        for j in range(lines_number):
+            pst_seats_change_visualize_word_rect[i][j].center=(
+                115+35*(columns_number+i),55+35*j)
+    # 用来和 change_cnt 一起可视化轮换方式
+    
+    # 确定按钮
+    confirm_button_block=pygame.Rect(70+35*columns_number-50,100+35*lines_number,100,40)
+    confirm_button_word=LITTLE_FONT.render("确 认",True,WHITE)
+    confirm_button_word_rect=confirm_button_word.get_rect()
+    confirm_button_word_rect.center=(70+35*columns_number,120+35*lines_number)
+
     """讲台在屏幕下方，窗户在屏幕右侧"""
     # 轮换前
     pre_reminder_word=VERY_LITTLE_FONT.render("轮换前",True,WHITE)
@@ -278,6 +340,8 @@ def set_change_mode():
     # 座位
     pre_seats_blocks_rect=[[pygame.Rect(40+35*i,40+35*j,30,30)
              for j in range(lines_number)] for i in range(columns_number)]
+    pre_seats_blocks_color=[[DARK_GRAY for j in range(lines_number)]
+             for i in range(columns_number)]
     
     # 轮换后
     pst_reminder_word=VERY_LITTLE_FONT.render("轮换后",True,WHITE)
@@ -291,20 +355,35 @@ def set_change_mode():
     # 座位
     pst_seats_blocks_rect=[[pygame.Rect(110+35*(columns_number+i),40+35*j,30,30)
              for j in range(lines_number)] for i in range(columns_number)]
+    pst_seats_blocks_color=[[DARK_GRAY for j in range(lines_number)]
+             for i in range(columns_number)]
+
+    # 获取 pre seats 的颜色
+    def get_pre_seats_color(x,y):
+        if pre_seats_selected_buf[x][y]:
+            return YELLOW
+        else:
+            return pre_seats_blocks_color[x][y]
 
     while True:
         set_change_mode_surface.fill(GRAY)
-
+        # 确定按钮
+        pygame.draw.rect(set_change_mode_surface,DARK_GRAY,confirm_button_block)
+        set_change_mode_surface.blit(confirm_button_word,confirm_button_word_rect)
         # 轮换前
         set_change_mode_surface.blit(pre_reminder_word,pre_reminder_word_rect)
+        # 讲台
         pygame.draw.rect(set_change_mode_surface,DARK_GRAY,pre_stage_block)
         set_change_mode_surface.blit(pre_stage_word,pre_stage_word_rect)
+        # 座位
         for x in range(columns_number):
             for y in range(lines_number):
-                if seats[y][x]=="BLANK":
+                if seats[x][y]=="BLANK":
                     continue
-                pygame.draw.rect(set_change_mode_surface,DARK_GRAY,
+                pygame.draw.rect(set_change_mode_surface,get_pre_seats_color(x,y),
                         pre_seats_blocks_rect[x][y])
+                set_change_mode_surface.blit(pre_seats_change_visualize_word[x][y],
+                    pre_seats_change_visualize_word_rect[x][y])
 
         # 分割线
         pygame.draw.line(set_change_mode_surface,DARK_GRAY,
@@ -312,37 +391,286 @@ def set_change_mode():
 
         # 轮换后
         set_change_mode_surface.blit(pst_reminder_word,pst_reminder_word_rect)
+        # 讲台
         pygame.draw.rect(set_change_mode_surface,DARK_GRAY,pst_stage_block)
         set_change_mode_surface.blit(pst_stage_word,pst_stage_word_rect)
+        # 座位
         for x in range(columns_number):
             for y in range(lines_number):
-                if seats[y][x]=="BLANK":
+                if seats[x][y]=="BLANK":
                     continue
-                pygame.draw.rect(set_change_mode_surface,DARK_GRAY,
+                pygame.draw.rect(set_change_mode_surface,pst_seats_blocks_color[x][y],
                         pst_seats_blocks_rect[x][y])
-
+                set_change_mode_surface.blit(pst_seats_change_visualize_word[x][y],
+                    pst_seats_change_visualize_word_rect[x][y])
+                
         for event in pygame.event.get():
             if event.type==QUIT:
                 pygame.display.quit()
                 _exit(0)
+            
+            # 鼠标悬停
+            mouse_pos=pygame.mouse.get_pos()
+            # 在确定按钮上
+            if IN(mouse_pos,confirm_button_block.topleft,confirm_button_block.bottomright):
+                confirm_button_word=LITTLE_FONT.render("确 定",True,YELLOW)
+            else:
+                confirm_button_word=LITTLE_FONT.render("确 定",True,WHITE)
+                # 在 pre 那边
+                if mouse_pos[0]<70+35*columns_number:
+                    # 选起点之前
+                    if not pre_first_click:
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pre_seats_blocks_rect[x][y].topleft,
+                                        pre_seats_blocks_rect[x][y].bottomright):
+                                    pre_seats_blocks_color[x][y]=YELLOW
+                                    break_flag=True
+                                    break
+                                else:
+                                    pre_seats_blocks_color[x][y]=DARK_GRAY
+                            if break_flag:
+                                break
+                    # 选起点之后
+                    else:
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pre_seats_blocks_rect[x][y].topleft,
+                                        pre_seats_blocks_rect[x][y].bottomright):
+                                    for i in range(columns_number):
+                                        for j in range(lines_number):
+                                            if IN((i,j),
+                                                    (min(x,pre_first_block[0])-1,min(y,pre_first_block[1])-1),
+                                                    (max(x,pre_first_block[0])+1,max(y,pre_first_block[1])+1)
+                                                    ):
+                                                pre_seats_blocks_color[i][j]=YELLOW
+                                            else:
+                                                pre_seats_blocks_color[i][j]=DARK_GRAY
+                                    break_flag=True
+                                    break
+                                else:
+                                    pass
+                            if break_flag:
+                                break
+                
+                # 在 pst 那边
+                # 只有选中 pre 后才能选 pst
+                elif mouse_pos[0]>70+35*columns_number and pre_selected: 
+                    # 选起点之前
+                    if not pst_first_click:
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pst_seats_blocks_rect[x][y].topleft,
+                                        pst_seats_blocks_rect[x][y].bottomright):
+                                    pst_seats_blocks_color[x][y]=YELLOW
+                                    break_flag=True
+                                    break
+                                else:
+                                    pst_seats_blocks_color[x][y]=DARK_GRAY
+                            if break_flag:
+                                break
+                    # 选起点之后
+                    else:
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pst_seats_blocks_rect[x][y].topleft,
+                                        pst_seats_blocks_rect[x][y].bottomright):
+                                    for i in range(columns_number):
+                                        for j in range(lines_number):
+                                            if IN((i,j),
+                                                    (min(x,pst_first_block[0])-1,min(y,pst_first_block[1])-1),
+                                                    (max(x,pst_first_block[0])+1,max(y,pst_first_block[1])+1)
+                                                    ):
+                                                pst_seats_blocks_color[i][j]=YELLOW
+                                            else:
+                                                pst_seats_blocks_color[i][j]=DARK_GRAY
+                                    break_flag=True
+                                    break
+                                else:
+                                    pass
+                            if break_flag:
+                                break
+            
+            # 鼠标点击
+            if event.type==MOUSEBUTTONUP:
+                # 确定按钮
+                if IN(mouse_pos,confirm_button_block.topleft,confirm_button_block.bottomright):
+                    for x in range(columns_number):
+                        for y in range(lines_number):
+                            if seats_change_mode[x][y]==(-1,-1):
+                                continue
+                            else:
+                                seats_change_mode[x][y]=seats_change_buf[x][y]
+                    pygame.display.quit()
+                    print(seats_change_mode)
+                    return
+
+                # pre
+                elif mouse_pos[0]<70+35*columns_number:
+                    # 选起点
+                    if not pre_first_click:
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pre_seats_blocks_rect[x][y].topleft,
+                                        pre_seats_blocks_rect[x][y].bottomright):
+                                    pre_first_click=True
+                                    pre_first_block=(x,y)
+                                    break_flag=True
+                                    break
+                                else:
+                                    pass
+                            if break_flag:
+                                break
+                    # 选终点
+                    else:
+                        break_flag=False
+
+                        # 检查所选区域是否合法
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pre_seats_blocks_rect[x][y].topleft,
+                                    pre_seats_blocks_rect[x][y].bottomright):
+                                    pre_first_click=False
+                                    pre_second_block=(x,y)
+                                    pre_first_block,pre_second_block=chkmin(pre_first_block,pre_second_block)
+                                    break_flag=True
+                                    break
+                            if break_flag:
+                                break
+                        break_flag=False
+                        unaccepted=False
+                        for x in range(pre_first_block[0],pre_second_block[0]+1):
+                            for y in range(pre_first_block[1],pre_second_block[1]+1):
+                                if seats[x][y]=="BLANK":
+                                    break_flag=unaccepted=True
+                                    break
+                            if break_flag:
+                                break
+                        # 不合法
+                        if unaccepted:
+                            pre_first_block=pre_second_block=(-1,-1)
+                            show_error("轮换时不得包含空座位")
+                        # 合法
+                        else:
+                            break_flag=False
+                            for x in range(columns_number):
+                                for y in range(lines_number):
+                                    if IN(mouse_pos,pre_seats_blocks_rect[x][y].topleft,
+                                        pre_seats_blocks_rect[x][y].bottomright):
+                                        pre_selected=True
+                                        break_flag=True
+                                        for i in range(pre_first_block[0],pre_second_block[0]+1):
+                                            for j in range(pre_first_block[1],pre_second_block[1]+1):
+                                                pre_seats_selected_buf[i][j]=True
+                                    else:
+                                        pass
+                                if break_flag:
+                                    break
+                
+                # pst
+                elif mouse_pos[0]>70+35*columns_number and pre_selected:
+                    # 选起点
+                    if not pst_first_click:
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pst_seats_blocks_rect[x][y].topleft,
+                                        pst_seats_blocks_rect[x][y].bottomright):
+                                    break_flag=True
+                                    pst_first_click=True
+                                    pst_first_block=(x,y)
+                                    break
+                                else:
+                                    pass
+                            if break_flag:
+                                break
+                    # 选终点
+                    else:
+                        break_flag=False
+                        # 检查选的两个范围是否合法
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,pst_seats_blocks_rect[x][y].topleft,
+                                    pst_seats_blocks_rect[x][y].bottomright):
+                                    pst_second_block=(x,y)
+                                    break_flag=True
+                                    break
+                            if break_flag:
+                                break
+                        pst_first_block,pst_second_block=chkmin(pst_first_block,pst_second_block)
+                        break_flag=unaccepted=False
+                        for x in range(pst_first_block[0],pst_second_block[0]+1):
+                            for y in range(pst_first_block[1],pst_second_block[1]+1):
+                                if seats[x][y]=="BLANK":
+                                    break_flag=unaccepted=True
+                                    break
+                            if break_flag:
+                                break
+                        # 不合法
+                        if unaccepted:
+                            pst_first_click=False
+                            pst_first_block=(-1,-1)
+                            show_error("轮换时不得包含空座位")
+                        elif not pre_second_block[0]-pre_first_block[0]==pst_second_block[0]-pst_first_block[0] or not pre_second_block[1]-pre_first_block[1]==pst_second_block[1]-pst_first_block[1]:
+                            pst_first_click=False
+                            pst_first_block=(-1,-1)
+                            show_error("二者选择的范围必须一样")
+                        # 合法    
+                        else:
+                            break_flag=False
+                            for x in range(columns_number):
+                                for y in range(lines_number):
+                                    if IN(mouse_pos,pst_seats_blocks_rect[x][y].topleft,
+                                        pst_seats_blocks_rect[x][y].bottomright):
+                                        pst_first_click=False
+                                        pre_selected=False
+                                        break_flag=True
+                                        # 存储
+                                        dx=pst_first_block[0]-pre_first_block[0]
+                                        dy=pst_first_block[1]-pre_first_block[1]
+                                        for i in range(pst_first_block[0],pst_second_block[0]+1):
+                                            for j in range(pst_first_block[1],pst_second_block[1]+1):
+                                                seats_change_buf[i][j]=(i-dx,j-dy)
+                                                pst_seats_blocks_color[i][j]=DARK_GRAY
+                                                change_cnt+=1
+                                                # 用数字进行可视化
+                                                pre_seats_change_visualize_word[i-dx][j-dy]=VERY_LITTLE_FONT.render(
+                                                    str(change_cnt),True,WHITE)
+                                                pre_seats_selected_buf[i-dx][j-dy]=False
+                                                pst_seats_change_visualize_word[i][j]=VERY_LITTLE_FONT.render(
+                                                    str(change_cnt),True,WHITE)
+                                                
+                                        break
+                                    else:
+                                        pass
+                                if break_flag:
+                                    break
 
         pygame.display.update()
+        fps_clock.tick(FPS)
     return
 
-"""WARNING: UNCOMPLETED"""
+"""WARNING: UNFINISHED"""
 def main():
-    global data_file_name,seats
+    global data_file_name,seats,seats_change_mode
 
     greet()
     sleep(0.2)
     mode=import_or_create()
     if mode=="import":
-        data_file_name=select_file([("数据文件","*.rsd")]) # ".rsd" 取自 random、seat、data 首字母
+        data_file_name=select_file([("数据文件","*.rsd")]) 
+        # ".rsd" 取自 random、seat、data 首字母
 
     elif mode=="new":
         choose_seats_numbers()
         # print(lines_number,columns_number)
-        seats=[["" for y in range(columns_number)] for x in range(lines_number)]
+        seats=[["" for j in range(lines_number)] for i in range(columns_number)]
+        seats_change_mode=[[(0,0) for j in range(lines_number)] for i in range(columns_number)]
          # seats[x][y]: x为行号，y为列号，后门处为[0][0]
         choose_blank_seats()
         print(seats)
