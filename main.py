@@ -1,5 +1,3 @@
-from msvcrt import LK_LOCK
-from re import T
 from prefix import *
 from os import _exit
 
