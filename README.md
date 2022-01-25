@@ -11,9 +11,11 @@
 
 # Update logs
 ## RS v3.0.1 published at 2022.1.18 16:46
-unfinished
+- 未完成
 ## RS v3.0.2 published at 2022.1.19 17:44
-unfinished
+- 未完成
 ## RS v3.0.0 published at 2022.1.21 22:32
-first finished version
-## RS v3.1 published at
+- 第一个完整版
+## RS v3.1 published at 2022.1.25 12:03
+- 修复了一些已知问题
+- 增加了随机排列后手动换座位的功能
