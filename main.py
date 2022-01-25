@@ -1,4 +1,5 @@
 from msvcrt import LK_LOCK
+from re import T
 from prefix import *
 from os import _exit
 
@@ -860,20 +861,25 @@ def start_confirm():
 # 随机排列
 def random_arrange(visual=False) -> bool:
     global lines_number,columns_number,seats,students_name,seats_change_mode
-
     random_arrange_surface=pygame.display.set_mode((100+75*columns_number,200+45*lines_number))
     pygame.display.set_caption("随机排列")
+
     # 随机排列后端
-    seed(time())
-    shuffle(students_name)
-    random_cnt=0
-    for i in range(len(seats)):
-        for j in range(len(seats[i])):
-            if not seats[i][j]=="$BLANK$":
-                seats[i][j]=students_name[random_cnt]
-                random_cnt+=1
-            else:
-                continue
+    if not visual:
+        seed(time())
+        shuffle(students_name)
+        random_cnt=0
+        for i in range(len(seats)):
+            for j in range(len(seats[i])):
+                if not seats[i][j]=="$BLANK$":
+                    seats[i][j]=students_name[random_cnt]
+                    random_cnt+=1
+                else:
+                    continue
+    
+    # 此处加入手动调换座位功能
+    handly_change_seat_first=(-1,-1)
+
     # 前端
     seats_word=[[VERY_LITTLE_FONT.render(seats[i][j],True,WHITE)
              for j in range(lines_number)] for i in range(columns_number)]
@@ -912,7 +918,7 @@ def random_arrange(visual=False) -> bool:
 
     visual=visual
     save_last=False # 用来标记是否已经自动保存最近一次的数据
-
+    cntt=0
     while True:
         random_arrange_surface.fill(GRAY)
         # 显示
@@ -950,9 +956,11 @@ def random_arrange(visual=False) -> bool:
             random_arrange_surface.blit(stage_word,stage_word_rect)
             for x in range(columns_number):
                 for y in range(lines_number):
-                    seats_word[x][y]=VERY_LITTLE_FONT.render(seats[x][y],True,WHITE)
+                    if x==handly_change_seat_first[0] and y==handly_change_seat_first[1]:
+                        seats_word[x][y]=VERY_LITTLE_FONT.render(seats[x][y],True,YELLOW)
                     seats_word_rect[x][y]=seats_word[x][y].get_rect()
                     seats_word_rect[x][y].center=(85+75*x,70+45*y)
+
                     if seats[x][y]=="$BLANK$":
                         continue
                     pygame.draw.rect(random_arrange_surface,DARK_GRAY,seats_blocks[x][y])
@@ -1001,6 +1009,14 @@ def random_arrange(visual=False) -> bool:
                     confirm_button_word=VERY_LITTLE_FONT.render("确认",True,YELLOW)
                 else:
                     confirm_button_word=VERY_LITTLE_FONT.render("确认",True,WHITE)
+                # 在座位上
+                for x in range(columns_number):
+                    for y in range(lines_number):
+                        if IN(mouse_pos,seats_blocks[x][y].topleft,
+                                seats_blocks[x][y].bottomright):
+                            seats_word[x][y]=VERY_LITTLE_FONT.render(seats[x][y],True,YELLOW)
+                        else:
+                            seats_word[x][y]=VERY_LITTLE_FONT.render(seats[x][y],True,WHITE)
 
                 # 鼠标点击
                 if event.type==MOUSEBUTTONUP:
@@ -1049,8 +1065,40 @@ def random_arrange(visual=False) -> bool:
                                 new_seats[x][y]=seats[seats_change_mode[x][y][0]][
                                     seats_change_mode[x][y][1]] if not seats[seats_change_mode[x][y][0]
                                         ][seats_change_mode[x][y][1]]=="$BLANK$" else "$BLANK$"
+                                
                         seats=new_seats
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                seats_word[x][y]=VERY_LITTLE_FONT.render(seats[x][y],True,WHITE)
                         save_last=False
+                        handly_change_seat_first=(-1,-1) # 防止出现 bug
+                    
+                    # 在座位上
+                    elif IN(mouse_pos,seats_blocks[0][0].topleft,
+                        seats_blocks[columns_number-1][lines_number-1].bottomright):
+                        break_flag=False
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if IN(mouse_pos,seats_blocks[x][y].topleft,
+                                        seats_blocks[x][y].bottomright):
+                                    break_flag=True
+                                    if handly_change_seat_first==(-1,-1):
+                                        handly_change_seat_first=(x,y)
+                                    else:
+                                        handly_change_seat_tmp=seats[x][y]
+                                        seats[x][y]=seats[handly_change_seat_first[0]]\
+                                            [handly_change_seat_first[1]]
+                                        seats[handly_change_seat_first[0]]\
+                                            [handly_change_seat_first[1]]=handly_change_seat_tmp
+                                        seats_word[x][y]=VERY_LITTLE_FONT.render(seats[x][y],True,WHITE)
+                                        seats_word[handly_change_seat_first[0]][handly_change_seat_first[1]]= \
+                                            VERY_LITTLE_FONT.render(seats[handly_change_seat_first[0]] \
+                                                [handly_change_seat_first[1]],True,WHITE)
+                                        handly_change_seat_first=(-1,-1)
+                                        save_last=False
+                            if break_flag:
+                                break
+                                    
                     
                     # 确认
                     elif IN(mouse_pos,confirm_button_word_rect.topleft,
@@ -1069,7 +1117,7 @@ def config_operate():
     pygame.display.set_caption("修改/操作")
 
     # 修改配置
-    config_button_word=VERY_LITTLE_FONT.render("修改配置",True,WHITE)
+    config_button_word=VERY_LITTLE_FONT.render("修改/查看配置",True,WHITE)
     config_button_word_rect=config_button_word.get_rect()
     config_button_word_rect.center=(100,50)
     # 查看座位表并进行进一步操作
@@ -1098,9 +1146,9 @@ def config_operate():
             mouse_pos=pygame.mouse.get_pos()
             if IN(mouse_pos,config_button_word_rect.topleft,
                     config_button_word_rect.bottomright):
-                config_button_word=VERY_LITTLE_FONT.render("修改配置",True,YELLOW)
+                config_button_word=VERY_LITTLE_FONT.render("修改/查看配置",True,YELLOW)
             else:
-                config_button_word=VERY_LITTLE_FONT.render("修改配置",True,WHITE)
+                config_button_word=VERY_LITTLE_FONT.render("修改/查看配置",True,WHITE)
             if IN(mouse_pos,operate_button_word_rect.topleft,
                     operate_button_word_rect.bottomright):
                 operate_button_word=VERY_LITTLE_FONT.render("显示座位表",True,YELLOW)
@@ -1121,8 +1169,18 @@ def config_operate():
                     original_lines_number=lines_number
                     choose_seats_numbers()
                     if original_columns_number==columns_number and original_lines_number==lines_number:
-                        original_seats=[seats[i] for i in range(len(seats))]
+                        original_seats=[[seats[i][j] for j in range(lines_number)] 
+                                for i in range(columns_number)]
+                        is_same:bool=True
                         choose_blank_seats(mode="import")
+                        for x in range(columns_number):
+                            for y in range(lines_number):
+                                if seats[x][y]=="$BLANK$" and not original_seats[x][y]=="$BLANK$" \
+                                    or not seats[x][y]=="$BLANK$" and original_seats[x][y]=="$BLANK$":
+                                    is_same=False
+                        
+                        if is_same:
+                            seats=original_seats
                         if original_seats==seats:
                             set_change_mode(mode="import")
                         else:
@@ -1131,6 +1189,7 @@ def config_operate():
                         choose_blank_seats(mode="new")
                         set_change_mode(mode="new")
                     get_name_file()
+                    
                     
                 elif IN(mouse_pos,operate_button_word_rect.topleft,
                     operate_button_word_rect.bottomright):
@@ -1152,9 +1211,6 @@ def config_operate():
     return
         
 
-
-
-"""WARNING: UNFINISHED"""
 def main():
     global data_file_name,seats,seats_change_mode,already_get_lines_columns_number,lines_number,columns_number,students_name
 

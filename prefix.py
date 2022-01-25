@@ -15,7 +15,7 @@ pygame.init()
 pygame.font.init()
 # 帧速率
 FPS=300
-LOW_FPS=60
+LOW_FPS=100
 fps_clock=pygame.time.Clock()
 # 颜色
 BLACK     = (  0,  0,  0)
