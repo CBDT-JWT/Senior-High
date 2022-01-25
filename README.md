@@ -1,9 +1,13 @@
 # How to use
+## 源代码
 **源代码需求 ```python3``` 和 ```pygame```**  
-你可以通过 ```pip install pygame``` 命令安装 ```pygame```  
+——你可以通过 ```pip install pygame``` 命令安装 ```pygame```  
+**将 ```main.py``` 和 ```prefix.py``` 放在同一目录下运行即可**
 
-**将 ```main.py``` 和 ```prefix.py``` 放在同一目录下**  
+## 可执行文件(.exe)
+直接运行即可
 
+## 后续操作见```How To Use.mp4```
 
 # Update logs
 ## RS v3.0.1 published at 2022.1.18 16:46
